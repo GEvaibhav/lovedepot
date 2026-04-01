@@ -130,6 +130,12 @@ return [
             'path' => storage_path('logs/ekaya.log'),
             'level' => 'debug',
         ],
+        
+        'typsy' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/typsy.log'),
+            'level' => 'debug',
+        ],
 
         'lovedepot' => [
             'driver' => 'daily',

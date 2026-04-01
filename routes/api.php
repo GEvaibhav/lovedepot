@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Route;
 
 //Love Depot Webhook routes
 Route::any('lovedepot/order_create', 'ShopifyWebhookController@handleOrderCreate');
-Route::any('cronjob', 'ShopifyWebhookController@fetchWareIqOrders');
+Route::any('cronjob', 'ShopifyWebhookController@handleCronJob');
 
 //Innovist Webhook routes
 // Route::any('innovist/order_update', 'InnovistWebhookController@handleOrderUpdateWebhook');
@@ -31,6 +31,11 @@ Route::any('innovist/fullfill_update', 'InnovistWebhookController@handleOrderFul
 
 //Ekaya API
 Route::get('ekaya/getPincodeData', 'EkayaApiController@getPincodeData');
+
+//Typsy API
+Route::any('typsy/setQuizData', 'TypsyApiController@handleQuizCreate');
+Route::any('typsy/sendOTP', 'TypsyApiController@sendOTP');
+Route::any('typsy/verifyOTP', 'TypsyApiController@verifyOTP');
 
 //EasyEcom Webhook API (to cleavertap connect)
 Route::any('easyecom/create_order', 'EasyEcomWebhookController@handleOrderCreateWebhook');
