@@ -40,3 +40,6 @@ Route::any('typsy/verifyOTP', 'TypsyApiController@verifyOTP');
 //EasyEcom Webhook API (to cleavertap connect)
 Route::any('easyecom/create_order', 'EasyEcomWebhookController@handleOrderCreateWebhook');
 Route::any('easyecom/order_track', 'EasyEcomWebhookController@handleOrderTrackWebhook');
+
+//HazarBazar
+Route::any('hazarbazar/price_update', 'HazarbazarApiController@handleCronJob');

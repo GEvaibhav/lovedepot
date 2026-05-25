@@ -85,7 +85,7 @@ return [
             'handler_with' => [
                 'host' => env('PAPERTRAIL_URL'),
                 'port' => env('PAPERTRAIL_PORT'),
-                'connectionString' => 'tls://'.env('PAPERTRAIL_URL').':'.env('PAPERTRAIL_PORT'),
+                'connectionString' => 'tls://' . env('PAPERTRAIL_URL') . ':' . env('PAPERTRAIL_PORT'),
             ],
         ],
 
@@ -117,7 +117,7 @@ return [
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
         ],
-        
+
         'innovist' => [
             'driver' => 'daily',
             'path' => storage_path('logs/innovist.log'),
@@ -130,7 +130,7 @@ return [
             'path' => storage_path('logs/ekaya.log'),
             'level' => 'debug',
         ],
-        
+
         'typsy' => [
             'driver' => 'single',
             'path' => storage_path('logs/typsy.log'),
@@ -143,13 +143,21 @@ return [
             'level' => 'debug',
             'days' => 15,
         ],
-        
+
         'easyecom' => [
             'driver' => 'daily',
             'path' => storage_path('logs/easyecom.log'),
             'level' => 'debug',
             'days' => 15,
         ],
+
+        'pricesync' => [
+            'driver' => 'daily',
+            'path'   => storage_path('logs/pricesync.log'),
+            'level'  => 'debug',
+            'days'   => 30,
+        ],
+
     ],
 
 ];
