@@ -12,7 +12,7 @@ return [
     | Angel One API URL
     |--------------------------------------------------------------------------
     */
-        'url' => env('ANGEL_ONE_API_URL'),
+        'url' => env('ANGEL_ONE_API_URL', 'https://apiconnect.angelone.in/rest/secure/angelbroking/market/v1/quote/'),
 
         /*
     |--------------------------------------------------------------------------

@@ -21,12 +21,12 @@ class SyncPricesCommand extends Command
 
         $goldRate = $fetcher->fetchRatePerGram();
 
-        if (!$goldRate) {
+        if ($goldRate === null) {
             $this->error('Failed to fetch gold rate. Aborting.');
             return self::FAILURE;
         }
 
-        $this->info('Gold rate: Rs ' . $goldRate . '/gram');
+        $this->info('Gold RTGS rate: Rs ' . $goldRate . '/gram');
 
         $variants = $updater->fetchAllVariants();
         if (empty($variants)) {

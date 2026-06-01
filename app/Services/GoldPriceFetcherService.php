@@ -5,20 +5,17 @@ namespace App\Services;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-class GoldPriceFetcherService
-{
+class GoldPriceFetcherService {
     protected AngelOneAuthService $authService;
 
-    public function __construct(AngelOneAuthService $authService)
-    {
+    public function __construct(AngelOneAuthService $authService) {
         $this->authService = $authService;
     }
 
     /**
      * Fetch current gold price per gram from Angel One API.
      */
-    public function fetchRatePerGram(): ?float
-    {
+    public function fetchRatePerGram(): ?float {
         try {
 
             /**
@@ -41,7 +38,6 @@ class GoldPriceFetcherService
             $response = Http::withHeaders([
                 'Content-Type'  => 'application/json',
                 'Accept'        => 'application/json',
-                'X-MACAddress'  => config('shopify.gold_api.mac_address'),
                 'X-PrivateKey'  => config('shopify.gold_api.private_key'),
                 'X-UserType'    => 'USER',
                 'X-SourceID'    => 'WEB',
@@ -49,9 +45,12 @@ class GoldPriceFetcherService
             ])->timeout(30)->post(
                 config('shopify.gold_api.url'),
                 [
-                    'exchange'      => config('shopify.gold_api.exchange', 'MCX'),
-                    'tradingsymbol' => config('shopify.gold_api.trading_symbol'),
-                    'symboltoken'   => config('shopify.gold_api.symbol_token'),
+                    'mode' => 'LTP',
+                    'exchangeTokens' => [
+                        config('shopify.gold_api.exchange', 'MCX') => [
+                            (string) config('shopify.gold_api.symbol_token'),
+                        ],
+                    ],
                 ]
             );
 
@@ -84,7 +83,6 @@ class GoldPriceFetcherService
                 $response = Http::withHeaders([
                     'Content-Type'  => 'application/json',
                     'Accept'        => 'application/json',
-                    'X-MACAddress'  => config('shopify.gold_api.mac_address'),
                     'X-PrivateKey'  => config('shopify.gold_api.private_key'),
                     'X-UserType'    => 'USER',
                     'X-SourceID'    => 'WEB',
@@ -92,9 +90,12 @@ class GoldPriceFetcherService
                 ])->timeout(30)->post(
                     config('shopify.gold_api.url'),
                     [
-                        'exchange'      => config('shopify.gold_api.exchange', 'MCX'),
-                        'tradingsymbol' => config('shopify.gold_api.trading_symbol'),
-                        'symboltoken'   => config('shopify.gold_api.symbol_token'),
+                        'mode' => 'LTP',
+                        'exchangeTokens' => [
+                            config('shopify.gold_api.exchange', 'MCX') => [
+                                (string) config('shopify.gold_api.symbol_token'),
+                            ],
+                        ],
                     ]
                 );
             }
@@ -117,16 +118,78 @@ class GoldPriceFetcherService
             /**
              * Expected response:
              *
-             * {
-             *   "status": true,
-             *   "message": "SUCCESS",
-             *   "data": {
-             *      "ltp": 98765
+             *    {
+             *        "status":true,
+             *        "message":"SUCCESS",
+             *        "errorcode":"",
+             *        "data":{
+             *            "fetched":[{
+             *                "exchange":"MCX",
+             *                "tradingSymbol":"GOLD05JUN26FUT",
+             *                "symbolToken":"459277",
+             *                "ltp":155627.0
+             *            }],
+             *            "unfetched":[]
+             *        }
              *   }
-             * }
              */
 
-            $ltp = data_get($payload, 'data.ltp');
+            if (
+                data_get($payload, 'status') !== true ||
+                data_get($payload, 'message') !== 'SUCCESS'
+            ) {
+
+                Log::channel('pricesync')->error(
+                    'Gold API returned unsuccessful response',
+                    [
+                        'payload' => $payload,
+                    ]
+                );
+
+                return null;
+            }
+
+            $expectedExchange = config('shopify.gold_api.exchange', 'MCX');
+            $expectedTradingSymbol = config('shopify.gold_api.trading_symbol');
+            $expectedSymbolToken = config('shopify.gold_api.symbol_token');
+            $quote = null;
+
+            foreach (data_get($payload, 'data.fetched', []) as $fetchedQuote) {
+                if (
+                    data_get($fetchedQuote, 'exchange') === $expectedExchange &&
+                    (string) data_get($fetchedQuote, 'symbolToken') === (string) $expectedSymbolToken
+                ) {
+                    $quote = $fetchedQuote;
+                    break;
+                }
+            }
+
+            if (
+                !$quote ||
+                data_get($quote, 'tradingSymbol') !== $expectedTradingSymbol
+            ) {
+
+                Log::channel('pricesync')->error(
+                    'Gold API returned unexpected instrument',
+                    [
+                        'expected' => [
+                            'exchange' => $expectedExchange,
+                            'trading_symbol' => $expectedTradingSymbol,
+                            'symbol_token' => $expectedSymbolToken,
+                        ],
+                        'actual' => [
+                            'exchange' => data_get($quote, 'exchange'),
+                            'trading_symbol' => data_get($quote, 'tradingSymbol'),
+                            'symbol_token' => data_get($quote, 'symbolToken'),
+                        ],
+                        'payload' => $payload,
+                    ]
+                );
+
+                return null;
+            }
+
+            $ltp = data_get($quote, 'ltp');
 
             if (!is_numeric($ltp) || $ltp <= 0) {
 
@@ -143,15 +206,15 @@ class GoldPriceFetcherService
             /**
              * MCX GOLD FUT usually represents 10 grams
              * Verify contract specification once.
-             * 1.01 (1+gst rate/100) is added as a markup to cover taxes and fees, adjust as needed.
+             * 1.5 (1+gst rate/100) is added as a markup to cover taxes and fees, adjust as needed.
              */
-            $pricePerGram = (float) $ltp * 1.01 / 10;
+            $pricePerGram = (float) $ltp * 1.015 / 10;
 
             Log::channel('pricesync')->info(
                 'Gold rate fetched successfully',
                 [
-                    'ltp'             => (float) $ltp,
-                    'price_per_gram'  => round($pricePerGram, 2),
+                    'GOLD MCX'             => (float) $ltp,
+                    'GOLD RTGS'             => round($pricePerGram, 2),
                     'exchange'        => config('shopify.gold_api.exchange'),
                     'trading_symbol'  => config('shopify.gold_api.trading_symbol'),
                     'symbol_token'    => config('shopify.gold_api.symbol_token'),
@@ -159,7 +222,6 @@ class GoldPriceFetcherService
             );
 
             return round($pricePerGram, 2);
-
         } catch (\Exception $e) {
 
             Log::channel('pricesync')->error(

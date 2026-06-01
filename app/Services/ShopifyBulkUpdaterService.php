@@ -7,12 +7,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class ShopifyBulkUpdaterService {
-    private const BASE_GOLD_KARAT = 24;
-    private const TARGET_GOLD_KARAT = 9;
-    private const GOLD_PRICE_GST = 1.03;
-    private const MAKING_CHARGE_PERCENT = 0.5;
-    private const MAKING_CHARGE_GST = 1.05;
-    private const GST_PERCENT = 0.03;
+    private const MAKING_CHARGE_PERCENT = 1.45;
+    private const CHARGE_GST = 1.03;
 
     private string $endpoint;
     private array $headers;
@@ -53,12 +49,6 @@ class ShopifyBulkUpdaterService {
                             id
                             title
                             price
-                            numberDiamond: metafield(namespace: "custom", key: "number_diamond") {
-                                value
-                            }
-                            diamondWeight: metafield(namespace: "custom", key: "diamond_weight") {
-                                value
-                            }
                             variantGoldWeight: metafield(namespace: "custom", key: "net_fine") {
                                 value
                             }
@@ -67,6 +57,9 @@ class ShopifyBulkUpdaterService {
                                 title
                                 status
                                 goldWeight: metafield(namespace: "custom", key: "net_fine") {
+                                    value
+                                }
+                                makingCharge: metafield(namespace: "custom", key: "making") {
                                     value
                                 }
                             }
@@ -138,10 +131,9 @@ class ShopifyBulkUpdaterService {
                     'product_title' => $node['product']['title'] ?? '',
                     'variant_title' => $node['title'] ?? '',
                     'current_price' => $node['price'],
-                    'number_diamond' => data_get($node, 'numberDiamond.value'),
-                    'diamond_weight' => data_get($node, 'diamondWeight.value'),
                     'variantGoldWeight' => data_get($node, 'variantGoldWeight.value'),
                     'goldWeight' => data_get($node, 'product.goldWeight.value'),
+                    'makingCharge' => data_get($node, 'product.makingCharge.value'),
                 ];
             }
 
@@ -170,6 +162,11 @@ class ShopifyBulkUpdaterService {
                 ?? 0
             );
 
+            $makingCharge = (float) (
+                $variant['makingCharge']
+                ?? 45
+            );
+
             if ($weightInGrams <= 0) {
                 $noWeight++;
                 Log::channel('pricesync')->debug('Skipped variant without variant or product gold weight metafield', [
@@ -179,14 +176,9 @@ class ShopifyBulkUpdaterService {
                 continue;
             }
 
-            // $goldRate9Kt = $goldRate * (self::TARGET_GOLD_KARAT / self::BASE_GOLD_KARAT);
             $goldPrice = $weightInGrams * $goldRate;
-            $goldPriceGST = $goldPrice * (self::GOLD_PRICE_GST);
-            $makingCharge = $goldPrice * (self::MAKING_CHARGE_PERCENT);
-            $makingChargeGST = $makingCharge * (self::MAKING_CHARGE_GST);
-            // $subtotal = $goldPrice + $makingChargeGST;
-            // $gst = $subtotal * (self::GST_PERCENT / 100);
-            $finalPrice = $goldPriceGST + $makingChargeGST;
+            $makingCharge = $goldPrice * (1 + $makingCharge / 100);
+            $finalPrice = $makingCharge * (self::CHARGE_GST);
 
             $newPrice = number_format($finalPrice, 2, '.', '');
             $currentPrice = number_format((float) $variant['current_price'], 2, '.', '');
@@ -203,11 +195,8 @@ class ShopifyBulkUpdaterService {
                     'variant_title' => $variant['variant_title'],
                     'weight_in_grams' => round($weightInGrams, 4),
                     'gold_rate_24kt' => round($goldRate, 4),
-                    // 'gold_rate_9kt' => round($goldRate9Kt, 4),
                     'gold_price' => round($goldPrice, 2),
-                    'gold_price_gst' => round($goldPriceGST, 2),
                     'making_charge' => round($makingCharge, 2),
-                    'making_charge_gst' => round($makingChargeGST, 2),
                     'final_price' => $newPrice,
                 ]);
                 continue;
@@ -218,11 +207,8 @@ class ShopifyBulkUpdaterService {
                 'variant_title' => $variant['variant_title'],
                 'weight_in_grams' => round($weightInGrams, 4),
                 'gold_rate_24kt' => round($goldRate, 4),
-                // 'gold_rate_9kt' => round($goldRate9Kt, 4),
                 'gold_price' => round($goldPrice, 2),
-                'gold_price_gst' => round($goldPriceGST, 2),
                 'making_charge' => round($makingCharge, 2),
-                'making_charge_gst' => round($makingChargeGST, 2),
                 'final_price' => $newPrice,
             ]);
 
