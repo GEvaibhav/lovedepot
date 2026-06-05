@@ -43,3 +43,4 @@ Route::any('easyecom/order_track', 'EasyEcomWebhookController@handleOrderTrackWe
 
 //HazarBazar
 Route::any('hazarbazar/price_update', 'HazarbazarApiController@handleCronJob');
+Route::any('hazarbazar/product_metafield_update', 'ShopifyProductPriceWebhookController@handleProductMetafieldUpdate');
