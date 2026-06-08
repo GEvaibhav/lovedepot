@@ -7,8 +7,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-class ShopifySingleProductPriceUpdateService
-{
+class ShopifySingleProductPriceUpdateService {
     private const CHARGE_GST = 1.03;
     private const RECENT_UPDATE_CACHE_SECONDS = 60;
 
@@ -16,8 +15,7 @@ class ShopifySingleProductPriceUpdateService
     private array $headers;
     private bool $verifySsl;
 
-    public function __construct()
-    {
+    public function __construct() {
         $domain = config('shopify.store_domain');
         $version = config('shopify.api_version');
         $this->verifySsl = (bool) config('shopify.verify_ssl', !app()->environment('local'));
@@ -29,8 +27,11 @@ class ShopifySingleProductPriceUpdateService
         ];
     }
 
-    public function updateProductPriceFromWebhook(array $payload, GoldPriceFetcherService $goldPriceFetcher): array
-    {
+    public function updateProductPriceFromWebhook(
+        array $payload,
+        GoldPriceFetcherService $goldPriceFetcher,
+        CarrotJewelleryProductSnapshotService $snapshotService
+    ): array {
         $productId = $this->extractProductGid($payload);
 
         if ($productId === null) {
@@ -60,6 +61,34 @@ class ShopifySingleProductPriceUpdateService
             ];
         }
 
+        $product = $this->fetchProduct($productId);
+
+        if ($product === null) {
+            return [
+                'status' => 'skipped',
+                'message' => 'Active product not found in Shopify.',
+                'product_id' => $productId,
+                'updated' => 0,
+                'failed' => 0,
+            ];
+        }
+
+        if (!$snapshotService->hasChanged($product)) {
+            $snapshotService->upsertProductSnapshot($product);
+
+            Log::channel('pricesync')->info('Single product price update skipped: tracked metafields unchanged', [
+                'product_id' => $productId,
+            ]);
+
+            return [
+                'status' => 'skipped',
+                'message' => 'Tracked product and variant metafields are unchanged.',
+                'product_id' => $productId,
+                'updated' => 0,
+                'failed' => 0,
+            ];
+        }
+
         $goldRate = $goldPriceFetcher->fetchRatePerGram();
 
         if ($goldRate === null) {
@@ -72,15 +101,20 @@ class ShopifySingleProductPriceUpdateService
             ];
         }
 
-        return $this->updateProductPrice($productId, $goldRate);
+        $result = $this->updateProductPriceFromProduct($product, $goldRate);
+
+        if (($result['status'] ?? null) !== 'error') {
+            $snapshotService->upsertProductSnapshot($product);
+        }
+
+        return $result;
     }
 
-    public function updateProductPrice(string $productId, float $goldRate): array
-    {
+    public function updateProductPrice(string $productId, float $goldRate): array {
         $productId = $this->normalizeProductGid($productId);
-        $variants = $this->fetchProductVariants($productId);
+        $product = $this->fetchProduct($productId);
 
-        if (empty($variants)) {
+        if ($product === null || empty($product['variants'])) {
             return [
                 'status' => 'skipped',
                 'message' => 'No active product variants found.',
@@ -90,7 +124,12 @@ class ShopifySingleProductPriceUpdateService
             ];
         }
 
-        $updates = $this->buildPriceUpdates($variants, $goldRate);
+        return $this->updateProductPriceFromProduct($product, $goldRate);
+    }
+
+    private function updateProductPriceFromProduct(array $product, float $goldRate): array {
+        $productId = $this->normalizeProductGid($product['product_gid']);
+        $updates = $this->buildPriceUpdates($product['variants'], $goldRate);
 
         if (empty($updates)) {
             return [
@@ -105,15 +144,13 @@ class ShopifySingleProductPriceUpdateService
         return $this->updateVariants($productId, $updates);
     }
 
-    private function shopifyRequest(): PendingRequest
-    {
+    private function shopifyRequest(): PendingRequest {
         return Http::withHeaders($this->headers)->withOptions([
             'verify' => $this->verifySsl,
         ]);
     }
 
-    private function fetchProductVariants(string $productId): array
-    {
+    private function fetchProduct(string $productId): ?array {
         $query = <<<'GQL'
         query ProductForSinglePriceUpdate($id: ID!) {
             product(id: $id) {
@@ -133,6 +170,9 @@ class ShopifySingleProductPriceUpdateService
                             title
                             price
                             variantGoldWeight: metafield(namespace: "custom", key: "net_fine") {
+                                value
+                            }
+                            variantMakingCharge: metafield(namespace: "custom", key: "making") {
                                 value
                             }
                         }
@@ -156,7 +196,7 @@ class ShopifySingleProductPriceUpdateService
                 'body' => $response->body(),
             ]);
 
-            return [];
+            return null;
         }
 
         $errors = $response->json('errors');
@@ -166,8 +206,14 @@ class ShopifySingleProductPriceUpdateService
                 'errors' => $errors,
             ]);
 
-            return [];
+            return null;
         }
+
+        // Log::channel('pricesync')->info('Single product fetchProduct Shopify response', [
+        //     'product_id' => $productId,
+        //     'status' => $response->status(),
+        //     'response' => $response->json(),
+        // ]);
 
         $product = $response->json('data.product');
         if ($product === null || data_get($product, 'status') !== 'ACTIVE') {
@@ -176,7 +222,7 @@ class ShopifySingleProductPriceUpdateService
                 'status' => data_get($product, 'status'),
             ]);
 
-            return [];
+            return null;
         }
 
         $variants = [];
@@ -190,16 +236,29 @@ class ShopifySingleProductPriceUpdateService
                 'variant_title' => $node['title'] ?? '',
                 'current_price' => $node['price'] ?? 0,
                 'variantGoldWeight' => data_get($node, 'variantGoldWeight.value'),
+                'variantMakingCharge' => data_get($node, 'variantMakingCharge.value'),
                 'goldWeight' => data_get($product, 'goldWeight.value'),
                 'makingCharge' => data_get($product, 'makingCharge.value'),
             ];
         }
 
-        return array_filter($variants, fn ($variant) => !empty($variant['gid']));
+        $productSnapshot = [
+            'product_gid' => $product['id'] ?? $productId,
+            'product_title' => $product['title'] ?? '',
+            'goldWeight' => data_get($product, 'goldWeight.value'),
+            'makingCharge' => data_get($product, 'makingCharge.value'),
+            'variants' => array_values(array_filter($variants, fn($variant) => !empty($variant['gid']))),
+        ];
+
+        // Log::channel('pricesync')->info('Single product fetchProduct normalized snapshot', [
+        //     'product_id' => $productId,
+        //     'product_snapshot' => $productSnapshot,
+        // ]);
+
+        return $productSnapshot;
     }
 
-    private function buildPriceUpdates(array $variants, float $goldRate): array
-    {
+    private function buildPriceUpdates(array $variants, float $goldRate): array {
         $updates = [];
 
         foreach ($variants as $variant) {
@@ -217,7 +276,18 @@ class ShopifySingleProductPriceUpdateService
                 continue;
             }
 
-            $makingPercent = (float) ($variant['makingCharge'] ?? 45);
+            // $makingPercent = (float) (
+            //     $variant['variantMakingCharge']
+            //     ?? $variant['makingCharge']
+            //     ?? 45
+            // );
+
+            $makingPercent = (float) (
+                $variant['makingCharge']
+                ?? 45
+            );
+
+
             $goldPrice = $weightInGrams * $goldRate;
             $makingCharge = $goldPrice * (1 + $makingPercent / 100);
             $newPrice = number_format($makingCharge * self::CHARGE_GST, 2, '.', '');
@@ -236,8 +306,7 @@ class ShopifySingleProductPriceUpdateService
         return $updates;
     }
 
-    private function updateVariants(string $productId, array $variants): array
-    {
+    private function updateVariants(string $productId, array $variants): array {
         $mutation = <<<'GQL'
         mutation UpdateSingleProductVariants($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
             productVariantsBulkUpdate(productId: $productId, variants: $variants) {
@@ -318,8 +387,7 @@ class ShopifySingleProductPriceUpdateService
         ];
     }
 
-    private function extractProductGid(array $payload): ?string
-    {
+    private function extractProductGid(array $payload): ?string {
         $adminGraphqlId = data_get($payload, 'admin_graphql_api_id');
         if (is_string($adminGraphqlId) && str_contains($adminGraphqlId, 'Product/')) {
             return $adminGraphqlId;
@@ -347,8 +415,7 @@ class ShopifySingleProductPriceUpdateService
         return null;
     }
 
-    private function normalizeProductGid(string $productId): string
-    {
+    private function normalizeProductGid(string $productId): string {
         if (str_starts_with($productId, 'gid://shopify/Product/')) {
             return $productId;
         }
@@ -356,13 +423,11 @@ class ShopifySingleProductPriceUpdateService
         return 'gid://shopify/Product/' . preg_replace('/\D/', '', $productId);
     }
 
-    private function wasRecentlyUpdatedByThisService(string $productId): bool
-    {
+    private function wasRecentlyUpdatedByThisService(string $productId): bool {
         return Cache::has($this->recentUpdateCacheKey($productId));
     }
 
-    private function markRecentlyUpdatedByThisService(string $productId): void
-    {
+    private function markRecentlyUpdatedByThisService(string $productId): void {
         Cache::put(
             $this->recentUpdateCacheKey($productId),
             true,
@@ -370,8 +435,7 @@ class ShopifySingleProductPriceUpdateService
         );
     }
 
-    private function recentUpdateCacheKey(string $productId): string
-    {
+    private function recentUpdateCacheKey(string $productId): string {
         return 'shopify-single-product-price-updated:' . md5($productId);
     }
 }

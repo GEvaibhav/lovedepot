@@ -52,6 +52,9 @@ class ShopifyBulkUpdaterService {
                             variantGoldWeight: metafield(namespace: "custom", key: "net_fine") {
                                 value
                             }
+                            variantMakingCharge: metafield(namespace: "custom", key: "making") {
+                                value
+                            }
                             product {
                                 id
                                 title
@@ -132,6 +135,7 @@ class ShopifyBulkUpdaterService {
                     'variant_title' => $node['title'] ?? '',
                     'current_price' => $node['price'],
                     'variantGoldWeight' => data_get($node, 'variantGoldWeight.value'),
+                    'variantMakingCharge' => data_get($node, 'variantMakingCharge.value'),
                     'goldWeight' => data_get($node, 'product.goldWeight.value'),
                     'makingCharge' => data_get($node, 'product.makingCharge.value'),
                 ];
@@ -150,6 +154,135 @@ class ShopifyBulkUpdaterService {
         return $variants;
     }
 
+    public function fetchAllProductSnapshots(): array {
+        $products = [];
+        $cursor = null;
+        $page = 1;
+
+        do {
+            $afterClause = $cursor ? ', after: "' . $cursor . '"' : '';
+
+            $query = <<<GQL
+            {
+                products(first: 250{$afterClause}) {
+                    edges {
+                        cursor
+                        node {
+                            id
+                            title
+                            goldWeight: metafield(namespace: "custom", key: "net_fine") {
+                                value
+                            }
+                            makingCharge: metafield(namespace: "custom", key: "making") {
+                                value
+                            }
+                            variants(first: 250) {
+                                edges {
+                                    node {
+                                        id
+                                        title
+                                        variantGoldWeight: metafield(namespace: "custom", key: "net_fine") {
+                                            value
+                                        }
+                                        variantMakingCharge: metafield(namespace: "custom", key: "making") {
+                                            value
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    pageInfo {
+                        hasNextPage
+                    }
+                }
+            }
+            GQL;
+
+            $response = $this->shopifyRequest()
+                ->post($this->endpoint, ['query' => $query]);
+
+            if ($response->failed()) {
+                Log::channel('pricesync')->error('Failed to fetch products for carrot jewellery snapshot', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                    'endpoint' => $this->endpoint,
+                    'ssl_verification' => $this->verifySsl,
+                ]);
+
+                throw new \RuntimeException('Shopify product fetch failed with HTTP status ' . $response->status() . '.');
+            }
+
+            $errors = $response->json('errors');
+            if (!empty($errors)) {
+                Log::channel('pricesync')->error('Shopify GraphQL returned errors while fetching product snapshots', [
+                    'errors' => $errors,
+                    'endpoint' => $this->endpoint,
+                    'store_domain' => config('shopify.store_domain'),
+                ]);
+
+                throw new \RuntimeException('Shopify GraphQL error: ' . json_encode($errors));
+            }
+
+            $data = $response->json('data.products');
+            if ($data === null) {
+                Log::channel('pricesync')->error('Shopify products payload missing', [
+                    'response' => $response->json(),
+                    'endpoint' => $this->endpoint,
+                    'store_domain' => config('shopify.store_domain'),
+                ]);
+
+                throw new \RuntimeException('Shopify products payload missing.');
+            }
+
+            $edges = $data['edges'] ?? [];
+
+            if ($page === 1 && empty($edges)) {
+                Log::channel('pricesync')->warning('Shopify returned zero products on first page', [
+                    'store_domain' => config('shopify.store_domain'),
+                    'endpoint' => $this->endpoint,
+                    'response' => $response->json(),
+                ]);
+            }
+
+            foreach ($edges as $edge) {
+                $node = $edge['node'] ?? [];
+                $cursor = $edge['cursor'];
+                $variants = [];
+
+                foreach (data_get($node, 'variants.edges', []) as $variantEdge) {
+                    $variant = $variantEdge['node'] ?? [];
+
+                    $variants[] = [
+                        'gid' => $variant['id'] ?? null,
+                        'title' => $variant['title'] ?? '',
+                        'goldWeight' => data_get($variant, 'variantGoldWeight.value'),
+                        'makingCharge' => data_get($variant, 'variantMakingCharge.value'),
+                    ];
+                }
+
+                $products[] = [
+                    'product_gid' => $node['id'] ?? null,
+                    'product_title' => $node['title'] ?? '',
+                    'goldWeight' => data_get($node, 'goldWeight.value'),
+                    'makingCharge' => data_get($node, 'makingCharge.value'),
+                    'variants' => $variants,
+                ];
+            }
+
+            $hasNext = $data['pageInfo']['hasNextPage'] ?? false;
+            $page++;
+        } while ($hasNext);
+
+        Log::channel('pricesync')->info('Fetched Shopify product snapshots', [
+            'count' => count($products),
+            'store_domain' => config('shopify.store_domain'),
+            'endpoint' => $this->endpoint,
+        ]);
+
+        return array_values(array_filter($products, fn ($product) => !empty($product['product_gid'])));
+    }
+
     public function buildPriceUpdates(array $variants, float $goldRate): array {
         $skipped = 0;
         $noWeight = 0;
@@ -162,8 +295,14 @@ class ShopifyBulkUpdaterService {
                 ?? 0
             );
 
-            $makingCharge = (float) (
-                $variant['makingCharge']
+            // $makingPercent = (float) (
+            //     $variant['variantMakingCharge']
+            //     ?? $variant['makingCharge']
+            //     ?? 45
+            // );
+
+            $makingPercent = (float) (
+                 $variant['makingCharge']
                 ?? 45
             );
 
@@ -177,7 +316,7 @@ class ShopifyBulkUpdaterService {
             }
 
             $goldPrice = $weightInGrams * $goldRate;
-            $makingCharge = $goldPrice * (1 + $makingCharge / 100);
+            $makingCharge = $goldPrice * (1 + $makingPercent / 100);
             $finalPrice = $makingCharge * (self::CHARGE_GST);
 
             $newPrice = number_format($finalPrice, 2, '.', '');

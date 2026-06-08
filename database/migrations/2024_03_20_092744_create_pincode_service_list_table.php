@@ -13,6 +13,10 @@ return new class extends Migration
      */
     public function up()
     {
+        if (Schema::hasTable('pincode_service_list')) {
+            return;
+        }
+
         Schema::create('pincode_service_list', function (Blueprint $table) {
             $table->id();
             $table->string('Pincode');

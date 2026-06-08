@@ -13,6 +13,10 @@ return new class extends Migration
      */
     public function up()
     {
+        if (Schema::hasTable('shopify_order_data')) {
+            return;
+        }
+
         Schema::create('shopify_order_data', function (Blueprint $table) {
             $table->id();
             $table->string('order_id');
