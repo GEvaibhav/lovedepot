@@ -22,13 +22,13 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301,NE]
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
-	
+
 	php_value post_max_size 2000M
 	php_value upload_max_filesize 2500M
 	php_value max_execution_time 6000000
 	php_value max_input_time 6000000
 	php_value memory_limit 2500M
-	
+
 
 
 </IfModule>
@@ -45,7 +45,7 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301,NE]
    php_value memory_limit 2048M
    php_value post_max_size 256M
    php_value session.gc_maxlifetime 1440
-   php_value session.save_path "/var/cpanel/php/sessions/ea-php73"
+   php_value session.save_path "/var/cpanel/php/sessions/ea-php82"
    php_value upload_max_filesize 1024M
    php_flag zlib.output_compression On
 </IfModule>
@@ -57,15 +57,9 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301,NE]
    php_value memory_limit 2048M
    php_value post_max_size 256M
    php_value session.gc_maxlifetime 1440
-   php_value session.save_path "/var/cpanel/php/sessions/ea-php73"
+   php_value session.save_path "/var/cpanel/php/sessions/ea-php82"
    php_value upload_max_filesize 1024M
    php_flag zlib.output_compression On
 </IfModule>
 # END cPanel-generated php ini directives, do not edit
 
-# php -- BEGIN cPanel-generated handler, do not edit
-# Set the “ea-php80” package as the default “PHP” programming language.
-<IfModule mime_module>
-  AddHandler application/x-httpd-ea-php80___lsphp .php .php8 .phtml
-</IfModule>
-# php -- END cPanel-generated handler, do not edit

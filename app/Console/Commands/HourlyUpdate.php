@@ -45,35 +45,43 @@ class HourlyUpdate extends Command {
             // $orderItem = ShopifyOrderData::where('order_date', '<', $twoHoursAgo)
             //     ->where('status', 0)
             //     ->get();
-            
-            $orderItem =  ShopifyOrderData::where('order_date', '<', $twoHoursAgo)
-                        ->where('status', 0)
-                        ->chunk(50, function ($orders) {
-                            foreach ($orders as $order) {
-                                $this->fetchOrders($order->order_id, $order->order_name, $order->order_date);
-                            }
-                        });
 
-            $orderLength = count($orderItem);
+            $orderProcessed = false;
 
-            Log::channel('lovedepot')->debug('cron job Data: ' . json_encode($orderItem));
+            ShopifyOrderData::where('order_date', '<', $twoHoursAgo)
+                ->where('status', 0)
+                ->chunk(50, function ($orders) use (&$orderProcessed) {
 
-            if ($orderLength > 0) {
-                for ($i = 0; $i < $orderLength; $i++) {
-                    $this->fetchOrders($orderItem[$i]['order_id'], $orderItem[$i]['order_name'], $orderItem[$i]['order_date']);
-                }
-            } else {
-                // If no orders are found, send an email notification
-                $emails = ['vaibhav@gradienteye.com', 'chirag@gradienteye.com'];
+                    if ($orders->count()) {
+                        $orderProcessed = true;
+                    }
+
+                    foreach ($orders as $order) {
+                        $this->fetchOrders(
+                            $order->order_id,
+                            $order->order_name,
+                            $order->order_date
+                        );
+                    }
+                });
+
+            if (!$orderProcessed) {
+
+                $emails = [
+                    'vaibhav@gradienteye.com',
+                    'chirag@gradienteye.com'
+                ];
 
                 Mail::raw('No new orders were found in the last 4 hours.', function ($message) use ($emails) {
                     $message->to($emails)
                         ->subject('No New Orders Alert');
                 });
 
-                Log::channel('lovedepot')->debug('No orders found. Email sent to: ' . implode(', ', $emails));
+                Log::channel('lovedepot')->debug(
+                    'No orders found. Email sent to: ' . implode(', ', $emails)
+                );
             }
-            
+
             DB::disconnect();
         } catch (\Exception $e) {
             Log::channel('lovedepot')->debug('Error get order on cronjob: ' . $e->getMessage());
@@ -146,13 +154,13 @@ class HourlyUpdate extends Command {
                 } elseif ($ordercancelled) {
 
                     DB::table('shopify_order_data')
-                    ->where('order_id', $order_id)
-                    ->update([
-                        'status' => 1,
-                        'delete_order_Shopify' => 1,
-                        'delete_order_wareiq' => 1,
-                    ]);
-                    
+                        ->where('order_id', $order_id)
+                        ->update([
+                            'status' => 1,
+                            'delete_order_Shopify' => 1,
+                            'delete_order_wareiq' => 1,
+                        ]);
+
                     // $wareiqOrderCancel = $this->fetchWareIqOrders($orderName, false);
 
                     // if (isset($wareiqOrderCancel['status']) && $wareiqOrderCancel['status'] === 'success') {

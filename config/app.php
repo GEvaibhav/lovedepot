@@ -225,7 +225,6 @@ return [
     'apiKey' => env('SF_API_KEY'),
     'apiPassword' => env('SF_API_PASSWORD'),
     'shopName' => env('SF_STORE'),
-    
     'wareiqApiKey' => env('WAREIQ_API_KEY'),
 
 ];
