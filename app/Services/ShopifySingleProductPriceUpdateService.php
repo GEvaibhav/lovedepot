@@ -76,9 +76,9 @@ class ShopifySingleProductPriceUpdateService {
         if (!$snapshotService->hasChanged($product)) {
             $snapshotService->upsertProductSnapshot($product);
 
-            Log::channel('pricesync')->info('Single product price update skipped: tracked metafields unchanged', [
-                'product_id' => $productId,
-            ]);
+            // Log::channel('pricesync')->info('Single product price update skipped: tracked metafields unchanged', [
+            //     'product_id' => $productId,
+            // ]);
 
             return [
                 'status' => 'skipped',

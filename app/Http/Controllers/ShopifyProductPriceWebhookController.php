@@ -62,11 +62,11 @@ class ShopifyProductPriceWebhookController extends Controller
                 $payload = $request->all();
             }
 
-            Log::channel('pricesync')->info('=== Shopify product metafield webhook received ===', [
-                'topic' => $request->header('X-Shopify-Topic'),
-                'shop' => $request->header('X-Shopify-Shop-Domain'),
-                'payload' => $payload,
-            ]);
+            // Log::channel('pricesync')->info('=== Shopify product metafield webhook received ===', [
+            //     'topic' => $request->header('X-Shopify-Topic'),
+            //     'shop' => $request->header('X-Shopify-Shop-Domain'),
+            //     'payload' => $payload,
+            // ]);
 
             // Check if product exists in database, if not add it first
             $ensureProductExists = $this->ensureProductExistsInDatabase(
@@ -117,9 +117,9 @@ class ShopifyProductPriceWebhookController extends Controller
 
             // Check if product already exists in database
             if ($snapshotService->productExists($productId)) {
-                Log::channel('pricesync')->info('Product already exists in database', [
-                    'product_id' => $productId,
-                ]);
+                // Log::channel('pricesync')->info('Product already exists in database', [
+                //     'product_id' => $productId,
+                // ]);
 
                 return [
                     'status' => 'success',

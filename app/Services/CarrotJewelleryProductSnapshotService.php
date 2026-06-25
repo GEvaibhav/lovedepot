@@ -41,26 +41,26 @@ class CarrotJewelleryProductSnapshotService
         ];
         $hasChanged = $existing->metafield_hash !== $incomingHash;
 
-        Log::channel('pricesync')->info('Product metafield snapshot comparison result', [
-            'product_id' => $productSnapshot['product_gid'],
-            'query' => $query->toSql(),
-            'bindings' => $query->getBindings(),
-            'product_snapshot' => $productSnapshot,
-            'stored_row' => [
-                'id' => $existing->id,
-                'shopify_product_id' => $existing->shopify_product_id,
-                'shopify_product_numeric_id' => $existing->shopify_product_numeric_id,
-                'title' => $existing->title,
-                'metafield_hash' => $existing->metafield_hash,
-                'updated_at' => optional($existing->updated_at)->toDateTimeString(),
-            ],
-            'incoming_hash' => $incomingHash,
-            'has_changed' => $hasChanged,
-            'reason' => $hasChanged ? 'Stored hash differs from incoming tracked metafield hash.' : 'Stored hash matches incoming tracked metafield hash.',
-            'changed_fields' => $this->diffTrackedSnapshot($storedSnapshot, $incomingTrackedSnapshot),
-            'stored_tracked_snapshot' => $storedSnapshot,
-            'incoming_tracked_snapshot' => $incomingTrackedSnapshot,
-        ]);
+        // Log::channel('pricesync')->info('Product metafield snapshot comparison result', [
+        //     'product_id' => $productSnapshot['product_gid'],
+        //     'query' => $query->toSql(),
+        //     'bindings' => $query->getBindings(),
+        //     'product_snapshot' => $productSnapshot,
+        //     'stored_row' => [
+        //         'id' => $existing->id,
+        //         'shopify_product_id' => $existing->shopify_product_id,
+        //         'shopify_product_numeric_id' => $existing->shopify_product_numeric_id,
+        //         'title' => $existing->title,
+        //         'metafield_hash' => $existing->metafield_hash,
+        //         'updated_at' => optional($existing->updated_at)->toDateTimeString(),
+        //     ],
+        //     'incoming_hash' => $incomingHash,
+        //     'has_changed' => $hasChanged,
+        //     'reason' => $hasChanged ? 'Stored hash differs from incoming tracked metafield hash.' : 'Stored hash matches incoming tracked metafield hash.',
+        //     'changed_fields' => $this->diffTrackedSnapshot($storedSnapshot, $incomingTrackedSnapshot),
+        //     'stored_tracked_snapshot' => $storedSnapshot,
+        //     'incoming_tracked_snapshot' => $incomingTrackedSnapshot,
+        // ]);
 
         return $hasChanged;
     }
