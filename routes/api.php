@@ -46,3 +46,8 @@ Route::any('hazarbazar/price_update', 'HazarbazarApiController@handleCronJob');
 Route::any('hazarbazar/carrot_jewellery_products_sync', 'ShopifyProductPriceWebhookController@syncCarrotJewelleryProducts');
 Route::any('hazarbazar/product_create', 'ShopifyProductPriceWebhookController@handleProductCreate');
 Route::any('hazarbazar/product_metafield_update', 'ShopifyProductPriceWebhookController@handleProductMetafieldUpdate');
+
+//Manup+
+Route::any('manup/order_create', 'ManupOrderCreateController@handleOrderCreate');
+Route::any('manup/status', 'ManupWebhookController@status');
+Route::any('manup/prescription/status', 'ManupWebhookController@status');

@@ -208,7 +208,7 @@ class GoldPriceFetcherService {
              * Verify contract specification once.
              * 1.5 (1+gst rate/100) is added as a markup to cover taxes and fees, adjust as needed.
              */
-            $pricePerGram = (float) $ltp * 1.018 / 10;
+            $pricePerGram = (float) $ltp * 1.02 / 10;
 
             Log::channel('pricesync')->info(
                 'Gold rate fetched successfully',

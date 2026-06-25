@@ -120,42 +120,51 @@ return [
 
         'innovist' => [
             'driver' => 'daily',
-            'path' => storage_path('logs/innovist.log'),
+            'path' => storage_path('logs/innovist/innovist.log'),
             'level' => 'debug',
-            'days' => 7,
+            'days' => 15,
         ],
 
         'ekaya' => [
             'driver' => 'single',
-            'path' => storage_path('logs/ekaya.log'),
+            'path' => storage_path('logs/ekaya/ekaya.log'),
             'level' => 'debug',
+            'days' => 15,
         ],
 
         'typsy' => [
             'driver' => 'single',
-            'path' => storage_path('logs/typsy.log'),
+            'path' => storage_path('logs/spritzbytypsy/typsy.log'),
             'level' => 'debug',
+            'days' => 15,
         ],
 
         'lovedepot' => [
             'driver' => 'daily',
-            'path' => storage_path('logs/lovedepot.log'),
+            'path' => storage_path('logs/lovedepot/lovedepot.log'),
             'level' => 'debug',
             'days' => 15,
         ],
 
         'easyecom' => [
             'driver' => 'daily',
-            'path' => storage_path('logs/easyecom.log'),
+            'path' => storage_path('logs/easyecom/easyecom.log'),
             'level' => 'debug',
             'days' => 15,
         ],
 
         'pricesync' => [
             'driver' => 'daily',
-            'path'   => storage_path('logs/pricesync.log'),
+            'path'   => storage_path('logs/carrot_jewellery/pricesync.log'),
             'level'  => 'debug',
-            'days'   => 30,
+            'days' => 15,
+        ],
+
+         'manup' => [
+            'driver' => 'daily',
+            'path'   => storage_path('logs/manup/manup.log'),
+            'level'  => 'debug',
+            'days' => 15,
         ],
 
     ],

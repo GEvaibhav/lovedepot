@@ -37,4 +37,13 @@ return [
         'redirect' => env('SHOPIFY_REDIRECT_URI'),
     ],
 
+    'meradoc' => [
+        'base_url' => env('MERADOC_BASE_URL'),
+        'client_id' => env('MERADOC_CLIENT_ID'),
+        'authorization_key' => env('MERADOC_AUTHORIZATION_KEY'),
+        'manup_access_token' => env('MANUP_ACCESS_TOKEN'),
+        'manup_store_domain' => env('MANUP_STORE_DOMAIN'),
+        'manup_store_token' => env('MANUP_STORE_TOKEN'),
+    ],
+
 ];
