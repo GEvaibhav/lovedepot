@@ -44,6 +44,7 @@ Route::any('easyecom/order_track', 'EasyEcomWebhookController@handleOrderTrackWe
 //HazarBazar
 Route::any('hazarbazar/price_update', 'HazarbazarApiController@handleCronJob');
 Route::any('hazarbazar/carrot_jewellery_products_sync', 'ShopifyProductPriceWebhookController@syncCarrotJewelleryProducts');
+Route::any('hazarbazar/update_cj_data', 'ShopifyProductPriceWebhookController@updateCarrotJewelleryData');
 Route::any('hazarbazar/product_create', 'ShopifyProductPriceWebhookController@handleProductCreate');
 Route::any('hazarbazar/product_metafield_update', 'ShopifyProductPriceWebhookController@handleProductMetafieldUpdate');
 

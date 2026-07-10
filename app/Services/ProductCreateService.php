@@ -101,6 +101,9 @@ class ProductCreateService
                 goldWeight: metafield(namespace: "custom", key: "net_fine") {
                     value
                 }
+                nineKGoldWeight: metafield(namespace: "custom", key: "net_weight") {
+                    value
+                }
                 makingCharge: metafield(namespace: "custom", key: "making") {
                     value
                 }
@@ -111,6 +114,9 @@ class ProductCreateService
                             title
                             price
                             variantGoldWeight: metafield(namespace: "custom", key: "net_fine") {
+                                value
+                            }
+                            variant9KGoldWeight: metafield(namespace: "custom", key: "net_weight") {
                                 value
                             }
                             variantMakingCharge: metafield(namespace: "custom", key: "making") {
@@ -173,8 +179,10 @@ class ProductCreateService
                 'variant_title' => $node['title'] ?? '',
                 'current_price' => $node['price'] ?? 0,
                 'variantGoldWeight' => data_get($node, 'variantGoldWeight.value'),
+                'variant9KGoldWeight' => data_get($node, 'variant9KGoldWeight.value'),
                 'variantMakingCharge' => data_get($node, 'variantMakingCharge.value'),
                 'goldWeight' => data_get($product, 'goldWeight.value'),
+                '9kGoldWeight' => data_get($product, 'nineKGoldWeight.value'),
                 'makingCharge' => data_get($product, 'makingCharge.value'),
             ];
         }
@@ -183,6 +191,7 @@ class ProductCreateService
             'product_gid' => $product['id'] ?? $productId,
             'product_title' => $product['title'] ?? '',
             'goldWeight' => data_get($product, 'goldWeight.value'),
+            '9kGoldWeight' => data_get($product, 'nineKGoldWeight.value'),
             'makingCharge' => data_get($product, 'makingCharge.value'),
             'variants' => array_values(array_filter($variants, fn($variant) => !empty($variant['gid']))),
         ];

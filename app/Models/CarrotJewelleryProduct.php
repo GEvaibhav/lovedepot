@@ -11,6 +11,7 @@ class CarrotJewelleryProduct extends Model
         'shopify_product_numeric_id',
         'title',
         'gold_weight',
+        '9k_gold_weight',
         'making_charge',
         'variants',
         'metafield_hash',

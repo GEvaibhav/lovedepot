@@ -52,6 +52,9 @@ class ShopifyBulkUpdaterService {
                             variantGoldWeight: metafield(namespace: "custom", key: "net_fine") {
                                 value
                             }
+                            variant9KGoldWeight: metafield(namespace: "custom", key: "net_weight") {
+                                value
+                            }
                             variantMakingCharge: metafield(namespace: "custom", key: "making") {
                                 value
                             }
@@ -60,6 +63,9 @@ class ShopifyBulkUpdaterService {
                                 title
                                 status
                                 goldWeight: metafield(namespace: "custom", key: "net_fine") {
+                                    value
+                                }
+                                nineKGoldWeight: metafield(namespace: "custom", key: "net_weight") {
                                     value
                                 }
                                 makingCharge: metafield(namespace: "custom", key: "making") {
@@ -135,8 +141,10 @@ class ShopifyBulkUpdaterService {
                     'variant_title' => $node['title'] ?? '',
                     'current_price' => $node['price'],
                     'variantGoldWeight' => data_get($node, 'variantGoldWeight.value'),
+                    'variant9KGoldWeight' => data_get($node, 'variant9KGoldWeight.value'),
                     'variantMakingCharge' => data_get($node, 'variantMakingCharge.value'),
                     'goldWeight' => data_get($node, 'product.goldWeight.value'),
+                    '9kGoldWeight' => data_get($node, 'product.nineKGoldWeight.value'),
                     'makingCharge' => data_get($node, 'product.makingCharge.value'),
                 ];
             }
@@ -173,6 +181,9 @@ class ShopifyBulkUpdaterService {
                             goldWeight: metafield(namespace: "custom", key: "net_fine") {
                                 value
                             }
+                            nineKGoldWeight: metafield(namespace: "custom", key: "net_weight") {
+                                value
+                            }
                             makingCharge: metafield(namespace: "custom", key: "making") {
                                 value
                             }
@@ -182,6 +193,9 @@ class ShopifyBulkUpdaterService {
                                         id
                                         title
                                         variantGoldWeight: metafield(namespace: "custom", key: "net_fine") {
+                                            value
+                                        }
+                                        variant9KGoldWeight: metafield(namespace: "custom", key: "net_weight") {
                                             value
                                         }
                                         variantMakingCharge: metafield(namespace: "custom", key: "making") {
@@ -257,6 +271,7 @@ class ShopifyBulkUpdaterService {
                         'gid' => $variant['id'] ?? null,
                         'title' => $variant['title'] ?? '',
                         'goldWeight' => data_get($variant, 'variantGoldWeight.value'),
+                        '9kGoldWeight' => data_get($variant, 'variant9KGoldWeight.value'),
                         'makingCharge' => data_get($variant, 'variantMakingCharge.value'),
                     ];
                 }
@@ -265,6 +280,7 @@ class ShopifyBulkUpdaterService {
                     'product_gid' => $node['id'] ?? null,
                     'product_title' => $node['title'] ?? '',
                     'goldWeight' => data_get($node, 'goldWeight.value'),
+                    '9kGoldWeight' => data_get($node, 'nineKGoldWeight.value'),
                     'makingCharge' => data_get($node, 'makingCharge.value'),
                     'variants' => $variants,
                 ];
@@ -281,6 +297,221 @@ class ShopifyBulkUpdaterService {
         ]);
 
         return array_values(array_filter($products, fn ($product) => !empty($product['product_gid'])));
+    }
+
+    public function fetchAllProductPackageWeights(?int $limit = null): array {
+        $products = [];
+        $cursor = null;
+        $page = 1;
+
+        do {
+            $afterClause = $cursor ? ', after: "' . $cursor . '"' : '';
+
+            $query = <<<GQL
+            {
+                products(first: 250{$afterClause}) {
+                    edges {
+                        cursor
+                        node {
+                            id
+                            title
+                            status
+                            variants(first: 250) {
+                                edges {
+                                    node {
+                                        id
+                                        title
+                                        inventoryItem {
+                                            measurement {
+                                                weight {
+                                                    value
+                                                    unit
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    pageInfo {
+                        hasNextPage
+                    }
+                }
+            }
+            GQL;
+
+            $response = $this->shopifyRequest()
+                ->post($this->endpoint, ['query' => $query]);
+
+            if ($response->failed()) {
+                Log::channel('pricesync')->error('Failed to fetch Shopify package weights', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                    'endpoint' => $this->endpoint,
+                    'ssl_verification' => $this->verifySsl,
+                ]);
+
+                throw new \RuntimeException('Shopify package weight fetch failed with HTTP status ' . $response->status() . '.');
+            }
+
+            $errors = $response->json('errors');
+            if (!empty($errors)) {
+                Log::channel('pricesync')->error('Shopify GraphQL returned errors while fetching package weights', [
+                    'errors' => $errors,
+                    'endpoint' => $this->endpoint,
+                    'store_domain' => config('shopify.store_domain'),
+                ]);
+
+                throw new \RuntimeException('Shopify GraphQL error: ' . json_encode($errors));
+            }
+
+            $data = $response->json('data.products');
+            if ($data === null) {
+                Log::channel('pricesync')->error('Shopify products package weight payload missing', [
+                    'response' => $response->json(),
+                    'endpoint' => $this->endpoint,
+                    'store_domain' => config('shopify.store_domain'),
+                ]);
+
+                throw new \RuntimeException('Shopify products package weight payload missing.');
+            }
+
+            $edges = $data['edges'] ?? [];
+
+            if ($page === 1 && empty($edges)) {
+                Log::channel('pricesync')->warning('Shopify returned zero products while fetching package weights', [
+                    'store_domain' => config('shopify.store_domain'),
+                    'endpoint' => $this->endpoint,
+                    'response' => $response->json(),
+                ]);
+            }
+
+            foreach ($edges as $edge) {
+                $node = $edge['node'] ?? [];
+                $cursor = $edge['cursor'];
+
+                if (data_get($node, 'status') !== 'ACTIVE') {
+                    continue;
+                }
+
+                $variants = [];
+                foreach (data_get($node, 'variants.edges', []) as $variantEdge) {
+                    $variant = $variantEdge['node'] ?? [];
+                    $weight = data_get($variant, 'inventoryItem.measurement.weight');
+
+                    $variants[] = [
+                        'gid' => $variant['id'] ?? null,
+                        'title' => $variant['title'] ?? '',
+                        'packageWeight' => data_get($weight, 'value'),
+                        'packageWeightUnit' => data_get($weight, 'unit'),
+                    ];
+                }
+
+                $products[] = [
+                    'product_gid' => $node['id'] ?? null,
+                    'product_title' => $node['title'] ?? '',
+                    'variants' => array_values(array_filter($variants, fn ($variant) => !empty($variant['gid']))),
+                ];
+
+                if ($limit !== null && count($products) >= $limit) {
+                    break;
+                }
+            }
+
+            $hasNext = $data['pageInfo']['hasNextPage'] ?? false;
+            $page++;
+        } while ($hasNext && ($limit === null || count($products) < $limit));
+
+        Log::channel('pricesync')->info('Fetched Shopify product package weights', [
+            'count' => count($products),
+            'store_domain' => config('shopify.store_domain'),
+            'endpoint' => $this->endpoint,
+        ]);
+
+        $products = array_values(array_filter($products, fn ($product) => !empty($product['product_gid'])));
+
+        return $limit === null ? $products : array_slice($products, 0, $limit);
+    }
+
+    public function updateNetWeightMetafields(array $metafields): array {
+        $mutation = <<<'GQL'
+        mutation UpdateNetWeightMetafields($metafields: [MetafieldsSetInput!]!) {
+            metafieldsSet(metafields: $metafields) {
+                metafields {
+                    id
+                    key
+                    value
+                }
+                userErrors {
+                    field
+                    message
+                }
+            }
+        }
+        GQL;
+
+        $summary = [
+            'requested' => count($metafields),
+            'updated' => 0,
+            'failed' => 0,
+            'errors' => [],
+        ];
+
+        foreach (array_chunk($metafields, 25) as $chunk) {
+            $response = $this->shopifyRequest()->post($this->endpoint, [
+                'query' => $mutation,
+                'variables' => [
+                    'metafields' => $chunk,
+                ],
+            ]);
+
+            if ($response->failed()) {
+                $summary['failed'] += count($chunk);
+                $summary['errors'][] = [
+                    'type' => 'http',
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ];
+                continue;
+            }
+
+            $errors = $response->json('errors');
+            if (!empty($errors)) {
+                $summary['failed'] += count($chunk);
+                $summary['errors'][] = [
+                    'type' => 'graphql',
+                    'errors' => $errors,
+                ];
+                continue;
+            }
+
+            $result = $response->json('data.metafieldsSet');
+            if ($result === null) {
+                $summary['failed'] += count($chunk);
+                $summary['errors'][] = [
+                    'type' => 'missing_payload',
+                    'response' => $response->json(),
+                ];
+                continue;
+            }
+
+            $userErrors = $result['userErrors'] ?? [];
+            if (!empty($userErrors)) {
+                $summary['failed'] += count($chunk);
+                $summary['errors'][] = [
+                    'type' => 'user_errors',
+                    'errors' => $userErrors,
+                ];
+                continue;
+            }
+
+            $summary['updated'] += count($result['metafields'] ?? []);
+        }
+
+        Log::channel('pricesync')->info('Shopify net_weight metafield update finished', $summary);
+
+        return $summary;
     }
 
     public function buildPriceUpdates(array $variants, float $goldRate): array {

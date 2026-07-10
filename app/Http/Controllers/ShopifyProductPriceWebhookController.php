@@ -239,4 +239,64 @@ class ShopifyProductPriceWebhookController extends Controller
             ], 500);
         }
     }
+
+    public function updateCarrotJewelleryData(
+        ShopifyBulkUpdaterService $shopifyBulkUpdater,
+        CarrotJewelleryProductSnapshotService $snapshotService
+    ) {
+        try {
+            Log::channel('pricesync')->info('=== Carrot jewellery Shopify package weight sync started ===');
+
+            if (!Schema::hasTable('carrot_jewellery_products')) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'carrot_jewellery_products table not found. Please run php artisan migrate first.',
+                ], 500);
+            }
+
+            if (!Schema::hasColumn('carrot_jewellery_products', '9k_gold_weight')) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => '9k_gold_weight column not found. Please run php artisan migrate first.',
+                ], 500);
+            }
+
+            $limit = 3;
+            $products = $shopifyBulkUpdater->fetchAllProductPackageWeights($limit);
+            $updated = $snapshotService->updatePackageWeights($products);
+            $metafields = $snapshotService->buildPackageWeightMetafields($products);
+            $shopifyMetafields = $shopifyBulkUpdater->updateNetWeightMetafields($metafields);
+
+            Log::channel('pricesync')->info('=== Carrot jewellery Shopify package weight sync finished ===', [
+                'fetched' => count($products),
+                'limit' => $limit,
+                'updated' => $updated,
+                'shopify_metafields' => $shopifyMetafields,
+            ]);
+
+            $hasShopifyFailures = ($shopifyMetafields['failed'] ?? 0) > 0;
+
+            return response()->json([
+                'status' => $hasShopifyFailures ? 'partial_success' : 'success',
+                'message' => $hasShopifyFailures
+                    ? 'Carrot jewellery package weights updated in database, but some Shopify metafields failed.'
+                    : 'Carrot jewellery package weights updated successfully.',
+                'fetched' => count($products),
+                'limit' => $limit,
+                'updated' => $updated,
+                'shopify_metafields' => $shopifyMetafields,
+            ], $hasShopifyFailures ? 207 : 200);
+        } catch (\Throwable $e) {
+            Log::channel('pricesync')->error('Carrot jewellery package weight sync failed', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Carrot jewellery package weight sync failed.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }

@@ -14,6 +14,7 @@ return new class extends Migration
             $table->string('shopify_product_numeric_id')->nullable()->index();
             $table->string('title')->nullable();
             $table->string('gold_weight')->nullable();
+            $table->string('9k_gold_weight')->nullable();
             $table->string('making_charge')->nullable();
             $table->json('variants')->nullable();
             $table->string('metafield_hash', 64)->index();
