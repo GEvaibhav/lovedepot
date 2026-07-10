@@ -457,53 +457,57 @@ class MeradocService {
         $graphqlUrl = "https://{$this->shopifyShop}/admin/api/2025-10/graphql.json";
 
         $mutation = <<<'GRAPHQL'
-                    mutation orderUpdate($input: OrderInput!) {
-                    orderUpdate(input: $input) {
-                        order {
-                        id
-                        tags
+                    mutation tagsAdd($id: ID!, $tags: [String!]!) {
+                        tagsAdd(id: $id, tags: $tags) {
+                            node {
+                                id
+                            }
+                            userErrors {
+                                field
+                                message
+                            }
                         }
-                        userErrors {
-                        field
-                        message
-                        }
-                    }
                     }
                     GRAPHQL;
 
         $response = Http::withHeaders([
             'X-Shopify-Access-Token' => $this->shopifyAccessToken,
+            'Content-Type' => 'application/json',
         ])->post($graphqlUrl, [
             'query' => $mutation,
             'variables' => [
-                'input' => [
-                    'id' => "gid://shopify/Order/{$orderId}",
-                    'tags' => [$tag]
-                ]
-            ]
+                'id'   => "gid://shopify/Order/{$orderId}",
+                'tags' => [$tag],
+            ],
         ]);
 
         $result = $response->json();
 
-        if (
-            empty(data_get($result, 'data.orderUpdate.userErrors'))
-        ) {
+        $userErrors = data_get(
+            $result,
+            'data.tagsAdd.userErrors',
+            []
+        );
+
+        if (empty($userErrors)) {
+
             Log::channel('manup')->info(
-                'Shopify Order Tag Updated Successfully',
+                'Shopify Order Tag Added Successfully',
                 [
                     'order_id' => $orderId,
-                    'tag' => $tag,
+                    'tag'      => $tag,
+                    'response' => $result,
                 ]
             );
         } else {
+
             Log::channel('manup')->error(
-                'Shopify Order Tag Update Failed',
+                'Shopify Order Tag Add Failed',
                 [
                     'order_id' => $orderId,
-                    'errors' => data_get(
-                        $result,
-                        'data.orderUpdate.userErrors'
-                    ),
+                    'tag'      => $tag,
+                    'errors'   => $userErrors,
+                    'response' => $result,
                 ]
             );
         }
