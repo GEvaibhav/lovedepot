@@ -272,8 +272,8 @@ class ShopifySingleProductPriceUpdateService {
 
         foreach ($variants as $variant) {
             $weightInGrams = (float) (
-                $variant['variantGoldWeight']
-                ?? $variant['goldWeight']
+                $variant['variant9KGoldWeight']
+                ?? $variant['9kGoldWeight']
                 ?? 0
             );
 
@@ -285,17 +285,11 @@ class ShopifySingleProductPriceUpdateService {
                 continue;
             }
 
-            // $makingPercent = (float) (
-            //     $variant['variantMakingCharge']
-            //     ?? $variant['makingCharge']
-            //     ?? 45
-            // );
-
             $makingPercent = (float) (
-                $variant['makingCharge']
+                $variant['variantMakingCharge']
+                ?? $variant['makingCharge']
                 ?? 45
             );
-
 
             $goldPrice = $weightInGrams * $goldRate;
             $makingCharge = $goldPrice * (1 + $makingPercent / 100);

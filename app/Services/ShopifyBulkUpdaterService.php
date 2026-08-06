@@ -521,19 +521,14 @@ class ShopifyBulkUpdaterService {
 
         foreach ($variants as $variant) {
             $weightInGrams = (float) (
-                $variant['variantGoldWeight']
-                ?? $variant['goldWeight']
+                 $variant['variant9KGoldWeight']
+                ?? $variant['9kGoldWeight']
                 ?? 0
             );
 
-            // $makingPercent = (float) (
-            //     $variant['variantMakingCharge']
-            //     ?? $variant['makingCharge']
-            //     ?? 45
-            // );
-
             $makingPercent = (float) (
-                 $variant['makingCharge']
+                $variant['variantMakingCharge']
+                ?? $variant['makingCharge']
                 ?? 45
             );
 
