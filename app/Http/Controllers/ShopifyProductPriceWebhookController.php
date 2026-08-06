@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\CarrotJewelleryProductSnapshotService;
-use App\Services\GoldPriceFetcherService;
+use App\Services\GoldRateService;
 use App\Services\ProductCreateService;
 use App\Services\ShopifyBulkUpdaterService;
 use App\Services\ShopifySingleProductPriceUpdateService;
@@ -50,7 +50,7 @@ class ShopifyProductPriceWebhookController extends Controller
 
     public function handleProductMetafieldUpdate(
         Request $request,
-        GoldPriceFetcherService $goldPriceFetcher,
+        GoldRateService $goldRateService,
         ShopifySingleProductPriceUpdateService $priceUpdateService,
         CarrotJewelleryProductSnapshotService $snapshotService,
         ProductCreateService $productCreateService
@@ -79,7 +79,7 @@ class ShopifyProductPriceWebhookController extends Controller
                 return response()->json($ensureProductExists, 500);
             }
 
-            $result = $priceUpdateService->updateProductPriceFromWebhook($payload, $goldPriceFetcher, $snapshotService);
+            $result = $priceUpdateService->updateProductPriceFromWebhook($payload, $goldRateService, $snapshotService);
             $httpStatus = ($result['status'] ?? null) === 'error' ? 500 : 200;
 
             return response()->json($result, $httpStatus);
@@ -261,7 +261,7 @@ class ShopifyProductPriceWebhookController extends Controller
                 ], 500);
             }
 
-            $limit = 3;
+            $limit = null;
             $products = $shopifyBulkUpdater->fetchAllProductPackageWeights($limit);
             $updated = $snapshotService->updatePackageWeights($products);
             $metafields = $snapshotService->buildPackageWeightMetafields($products);

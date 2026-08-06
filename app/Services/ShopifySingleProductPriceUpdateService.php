@@ -29,7 +29,7 @@ class ShopifySingleProductPriceUpdateService {
 
     public function updateProductPriceFromWebhook(
         array $payload,
-        GoldPriceFetcherService $goldPriceFetcher,
+        GoldRateService $goldRateService,
         CarrotJewelleryProductSnapshotService $snapshotService
     ): array {
         $productId = $this->extractProductGid($payload);
@@ -89,12 +89,12 @@ class ShopifySingleProductPriceUpdateService {
             ];
         }
 
-        $goldRate = $goldPriceFetcher->fetchRatePerGram();
+        $goldRate = $goldRateService->latestRatePerGram();
 
         if ($goldRate === null) {
             return [
                 'status' => 'error',
-                'message' => 'Failed to fetch gold rate.',
+                'message' => 'No saved gold rate found. Run prices:sync first.',
                 'product_id' => $productId,
                 'updated' => 0,
                 'failed' => 0,

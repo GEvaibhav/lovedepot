@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\GoldPriceFetcherService;
+use App\Services\GoldRateService;
 use App\Services\ShopifyBulkUpdaterService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -14,6 +15,7 @@ class SyncPricesCommand extends Command
 
     public function handle(
         GoldPriceFetcherService $fetcher,
+        GoldRateService $goldRateService,
         ShopifyBulkUpdaterService $updater
     ): int {
         $start = now();
@@ -27,6 +29,7 @@ class SyncPricesCommand extends Command
         }
 
         $this->info('Gold RTGS rate: Rs ' . $goldRate . '/gram');
+        $goldRateService->recordRate($goldRate);
 
         $variants = $updater->fetchAllVariants();
         if (empty($variants)) {
