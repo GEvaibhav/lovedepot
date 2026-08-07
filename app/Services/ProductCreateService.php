@@ -90,6 +90,10 @@ class ProductCreateService
         }
     }
 
+     /**
+     * Single product : get all variant data using SHOPIFY API
+     * for store new product data in database (Table: carrot_jewellery_products)
+     */
     private function fetchProduct(string $productId): ?array
     {
         $query = <<<'GQL'

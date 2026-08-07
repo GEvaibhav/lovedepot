@@ -2,14 +2,14 @@
 
 namespace App\Services;
 
-use App\Models\GoldRate;
+use App\Models\CarrotJewelleryGoldRate;
 use Illuminate\Support\Facades\Log;
 
 class GoldRateService
 {
-    public function recordRate(float $ratePerGram, string $source = 'prices:sync'): GoldRate
+    public function recordRate(float $ratePerGram, string $source = 'prices:sync'): CarrotJewelleryGoldRate
     {
-        $goldRate = GoldRate::create([
+        $goldRate = CarrotJewelleryGoldRate::create([
             'rate_per_gram' => $ratePerGram,
             'source' => $source,
             'fetched_at' => now(),
@@ -27,7 +27,7 @@ class GoldRateService
 
     public function latestRatePerGram(): ?float
     {
-        $goldRate = GoldRate::query()
+        $goldRate = CarrotJewelleryGoldRate::query()
             ->latest('fetched_at')
             ->latest('id')
             ->first();

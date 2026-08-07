@@ -27,6 +27,9 @@ class ShopifySingleProductPriceUpdateService {
         ];
     }
 
+    /**
+     * Single product : API main function
+     */
     public function updateProductPriceFromWebhook(
         array $payload,
         GoldRateService $goldRateService,
@@ -48,9 +51,9 @@ class ShopifySingleProductPriceUpdateService {
         }
 
         if ($this->wasRecentlyUpdatedByThisService($productId)) {
-            Log::channel('pricesync')->info('Single product price update skipped: recent self-triggered webhook', [
-                'product_id' => $productId,
-            ]);
+            // Log::channel('pricesync')->info('Single product price update skipped: recent self-triggered webhook', [
+            //     'product_id' => $productId,
+            // ]);
 
             return [
                 'status' => 'skipped',
@@ -110,23 +113,26 @@ class ShopifySingleProductPriceUpdateService {
         return $result;
     }
 
-    public function updateProductPrice(string $productId, float $goldRate): array {
-        $productId = $this->normalizeProductGid($productId);
-        $product = $this->fetchProduct($productId);
+    // public function updateProductPrice(string $productId, float $goldRate): array {
+    //     $productId = $this->normalizeProductGid($productId);
+    //     $product = $this->fetchProduct($productId);
 
-        if ($product === null || empty($product['variants'])) {
-            return [
-                'status' => 'skipped',
-                'message' => 'No active product variants found.',
-                'product_id' => $productId,
-                'updated' => 0,
-                'failed' => 0,
-            ];
-        }
+    //     if ($product === null || empty($product['variants'])) {
+    //         return [
+    //             'status' => 'skipped',
+    //             'message' => 'No active product variants found.',
+    //             'product_id' => $productId,
+    //             'updated' => 0,
+    //             'failed' => 0,
+    //         ];
+    //     }
 
-        return $this->updateProductPriceFromProduct($product, $goldRate);
-    }
+    //     return $this->updateProductPriceFromProduct($product, $goldRate);
+    // }
 
+    /**
+     * Single product : If product metafield update call this function
+     */
     private function updateProductPriceFromProduct(array $product, float $goldRate): array {
         $productId = $this->normalizeProductGid($product['product_gid']);
         $updates = $this->buildPriceUpdates($product['variants'], $goldRate);
@@ -150,6 +156,9 @@ class ShopifySingleProductPriceUpdateService {
         ]);
     }
 
+    /**
+     * Single product : get all variant data using SHOPIFY API
+     */
     private function fetchProduct(string $productId): ?array {
         $query = <<<'GQL'
         query ProductForSinglePriceUpdate($id: ID!) {
@@ -267,7 +276,12 @@ class ShopifySingleProductPriceUpdateService {
         return $productSnapshot;
     }
 
+    /**
+     * Single product : prepare product price
+     */
     private function buildPriceUpdates(array $variants, float $goldRate): array {
+        Log::channel('pricesync')->info('=== Single Products API Triggered ===');
+
         $updates = [];
 
         foreach ($variants as $variant) {
@@ -300,6 +314,19 @@ class ShopifySingleProductPriceUpdateService {
                 continue;
             }
 
+            Log::channel('pricesync')->debug(
+                'Single product prepared variant price update',
+                [
+                    'product_id' => $variant['product_gid'] ?? '',
+                    'product_title' => $variant['product_title'] ?? '',
+                    'variant_title' => $variant['variant_title'] ?? '',
+                    'weight_in_grams' => round($weightInGrams, 4),
+                    'making_percent' => $makingPercent,
+                    'gold_rate_9kt' => round($goldRate, 4),
+                    'final_price' => $newPrice,
+                ]
+            );
+
             $updates[] = [
                 'id' => $variant['gid'],
                 'price' => $newPrice,
@@ -309,6 +336,9 @@ class ShopifySingleProductPriceUpdateService {
         return $updates;
     }
 
+    /**
+     * Single product : Update product price using SHOPIFY API
+     */
     private function updateVariants(string $productId, array $variants): array {
         $mutation = <<<'GQL'
         mutation UpdateSingleProductVariants($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {

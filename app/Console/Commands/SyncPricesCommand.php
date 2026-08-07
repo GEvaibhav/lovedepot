@@ -8,8 +8,7 @@ use App\Services\ShopifyBulkUpdaterService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
-class SyncPricesCommand extends Command
-{
+class SyncPricesCommand extends Command {
     protected $signature = 'prices:sync';
     protected $description = 'Fetch gold rate and update active Shopify variant prices by weight';
 
@@ -19,7 +18,7 @@ class SyncPricesCommand extends Command
         ShopifyBulkUpdaterService $updater
     ): int {
         $start = now();
-        Log::channel('pricesync')->info('=== Gold price sync started ===');
+        Log::channel('pricesync')->info('=== Bulk price sync started ===');
 
         $goldRate = $fetcher->fetchRatePerGram();
 
@@ -31,20 +30,33 @@ class SyncPricesCommand extends Command
         $this->info('Gold RTGS rate: Rs ' . $goldRate . '/gram');
         $goldRateService->recordRate($goldRate);
 
-        $variants = $updater->fetchAllVariants();
-        if (empty($variants)) {
-            $this->error('No variants found in Shopify. Aborting.');
+        // $variants = $updater->fetchAllVariants();
+        // if (empty($variants)) {
+        //     $this->error('No variants found in Shopify. Aborting.');
+        //     return self::FAILURE;
+        // }
+
+        // $this->info('Found ' . count($variants) . ' variants');
+
+        // $groupedUpdates = $updater->buildPriceUpdates($variants, $goldRate);
+        // if (empty($groupedUpdates)) {
+        //     $this->info('All prices are already up to date.');
+        //     Log::channel('pricesync')->info('No price changes needed. Done.');
+        //     return self::SUCCESS;
+        // }
+
+        $groupedUpdates = $updater->buildPriceUpdates($goldRate);
+
+        if (empty($groupedUpdates)) {
+            $this->error('No variants found. Aborting.');
             return self::FAILURE;
         }
 
-        $this->info('Found ' . count($variants) . ' variants');
-
-        $groupedUpdates = $updater->buildPriceUpdates($variants, $goldRate);
-        if (empty($groupedUpdates)) {
-            $this->info('All prices are already up to date.');
-            Log::channel('pricesync')->info('No price changes needed. Done.');
-            return self::SUCCESS;
-        }
+        $this->info(
+            'Prepared ' .
+                array_sum(array_map('count', $groupedUpdates)) .
+                ' variant updates.'
+        );
 
         $result = $updater->updatePrices($groupedUpdates);
 
@@ -58,9 +70,9 @@ class SyncPricesCommand extends Command
 
         $this->error(
             'Sync finished with errors. Variants updated: '
-            . ($result['updated'] ?? 0)
-            . ', failed: '
-            . ($result['failed'] ?? 0)
+                . ($result['updated'] ?? 0)
+                . ', failed: '
+                . ($result['failed'] ?? 0)
         );
 
         return self::FAILURE;

@@ -48,6 +48,11 @@ class ShopifyProductPriceWebhookController extends Controller
         }
     }
 
+
+    /**
+     * Single product Price Update API
+     *
+     */
     public function handleProductMetafieldUpdate(
         Request $request,
         GoldRateService $goldRateService,

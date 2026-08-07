@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class GoldRate extends Model
+class CarrotJewelleryGoldRate extends Model
 {
     protected $fillable = [
         'rate_per_gram',

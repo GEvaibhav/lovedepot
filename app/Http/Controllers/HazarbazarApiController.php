@@ -11,7 +11,7 @@ class HazarbazarApiController extends Controller
     public function handleCronJob(Request $request)
     {
         try {
-            Log::channel('pricesync')->info('=== API Cron Triggered ===');
+            Log::channel('pricesync')->info('=== Bulk Products API Triggered ===');
 
             // Call Artisan command
             Artisan::call('prices:sync');
