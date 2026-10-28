@@ -41,12 +41,12 @@ Route::any('typsy/verifyOTP', 'TypsyApiController@verifyOTP');
 Route::any('easyecom/create_order', 'EasyEcomWebhookController@handleOrderCreateWebhook');
 Route::any('easyecom/order_track', 'EasyEcomWebhookController@handleOrderTrackWebhook');
 
-//HazarBazar
-Route::any('hazarbazar/price_update', 'HazarbazarApiController@handleCronJob');
-Route::any('hazarbazar/carrot_jewellery_products_sync', 'ShopifyProductPriceWebhookController@syncCarrotJewelleryProducts');
-Route::any('hazarbazar/update_cj_data', 'ShopifyProductPriceWebhookController@updateCarrotJewelleryData');
-Route::any('hazarbazar/product_create', 'ShopifyProductPriceWebhookController@handleProductCreate');
-Route::any('hazarbazar/product_metafield_update', 'ShopifyProductPriceWebhookController@handleProductMetafieldUpdate');
+//HazarBazar (CarrotJewellery)
+Route::any('hazarbazar/price_update', 'HazarbazarApiController@handleCronJob'); //Bulk product price update API
+Route::any('hazarbazar/carrot_jewellery_products_sync', 'ShopifyProductPriceWebhookController@syncCarrotJewelleryProducts'); //Store all product details in database
+Route::any('hazarbazar/update_cj_data', 'ShopifyProductPriceWebhookController@updateCarrotJewelleryData'); //Update all product 9k_gold_weight(NetWeight) metafield
+Route::any('hazarbazar/product_create', 'ShopifyProductPriceWebhookController@handleProductCreate'); // Add single product details in database when create new product on shopify (webhook)
+Route::any('hazarbazar/product_metafield_update', 'ShopifyProductPriceWebhookController@handleProductMetafieldUpdate'); //Update single product price when create new product on shopify OR update metafield (NetWeight(9kt), Makingcharge, NetFine(24kt)) on shopify
 
 //Manup+
 Route::any('manup/order_create', 'ManupOrderCreateController@handleOrderCreate');

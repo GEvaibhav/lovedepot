@@ -13,11 +13,15 @@ class CarrotJewelleryProduct extends Model
         'gold_weight',
         '9k_gold_weight',
         'making_charge',
+        'diamond_weight',
+        'diamond_count',
+        'tags',
         'variants',
         'metafield_hash',
     ];
 
     protected $casts = [
+        'tags' => 'array',
         'variants' => 'array',
     ];
 }

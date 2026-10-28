@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Log;
 
 class ShopifySingleProductPriceUpdateService {
     private const CHARGE_GST = 1.03;
+    private const DIAMOND_PRICE_PER_CARAT = 135000;
+    private const CARROT_LUXE_FLAT_CHARGE = 1999;
     private const RECENT_UPDATE_CACHE_SECONDS = 60;
 
     private string $endpoint;
@@ -135,7 +137,11 @@ class ShopifySingleProductPriceUpdateService {
      */
     private function updateProductPriceFromProduct(array $product, float $goldRate): array {
         $productId = $this->normalizeProductGid($product['product_gid']);
-        $updates = $this->buildPriceUpdates($product['variants'], $goldRate);
+        $updates = $this->buildPriceUpdates(
+            $product['variants'],
+            $goldRate,
+            $this->isCarrotLuxe($product['tags'] ?? [])
+        );
 
         if (empty($updates)) {
             return [
@@ -175,6 +181,13 @@ class ShopifySingleProductPriceUpdateService {
                 makingCharge: metafield(namespace: "custom", key: "making") {
                     value
                 }
+                diamondWeight: metafield(namespace: "custom", key: "diamond_weight") {
+                    value
+                }
+                diamondCount: metafield(namespace: "custom", key: "diamond_count") {
+                    value
+                }
+                tags
                 variants(first: 250) {
                     edges {
                         node {
@@ -188,6 +201,12 @@ class ShopifySingleProductPriceUpdateService {
                                 value
                             }
                             variantMakingCharge: metafield(namespace: "custom", key: "making") {
+                                value
+                            }
+                            variantDiamondWeight: metafield(namespace: "custom", key: "diamond_weight") {
+                                value
+                            }
+                            variantDiamondCount: metafield(namespace: "custom", key: "diamond_count") {
                                 value
                             }
                         }
@@ -256,6 +275,10 @@ class ShopifySingleProductPriceUpdateService {
                 'goldWeight' => data_get($product, 'goldWeight.value'),
                 '9kGoldWeight' => data_get($product, 'nineKGoldWeight.value'),
                 'makingCharge' => data_get($product, 'makingCharge.value'),
+                'variantDiamondWeight' => data_get($node, 'variantDiamondWeight.value'),
+                'variantDiamondCount' => data_get($node, 'variantDiamondCount.value'),
+                'diamondWeight' => data_get($product, 'diamondWeight.value'),
+                'diamondCount' => data_get($product, 'diamondCount.value'),
             ];
         }
 
@@ -265,6 +288,9 @@ class ShopifySingleProductPriceUpdateService {
             'goldWeight' => data_get($product, 'goldWeight.value'),
             '9kGoldWeight' => data_get($product, 'nineKGoldWeight.value'),
             'makingCharge' => data_get($product, 'makingCharge.value'),
+            'diamond_weight' => data_get($product, 'diamondWeight.value'),
+            'diamond_count' => data_get($product, 'diamondCount.value'),
+            'tags' => $product['tags'] ?? [],
             'variants' => array_values(array_filter($variants, fn($variant) => !empty($variant['gid']))),
         ];
 
@@ -277,9 +303,16 @@ class ShopifySingleProductPriceUpdateService {
     }
 
     /**
+     * Carrot luxe products are priced with diamonds and a flat making charge
+     */
+    private function isCarrotLuxe(array $tags): bool {
+        return in_array('carrot_luxe', array_map('strtolower', $tags), true);
+    }
+
+    /**
      * Single product : prepare product price
      */
-    private function buildPriceUpdates(array $variants, float $goldRate): array {
+    private function buildPriceUpdates(array $variants, float $goldRate, bool $isCarrotLuxe): array {
         Log::channel('pricesync')->info('=== Single Products API Triggered ===');
 
         $updates = [];
@@ -306,7 +339,24 @@ class ShopifySingleProductPriceUpdateService {
             );
 
             $goldPrice = $weightInGrams * $goldRate;
-            $makingCharge = $goldPrice * (1 + $makingPercent / 100);
+
+            if ($isCarrotLuxe) {
+                $diamondWeight = (float) (
+                    $variant['variantDiamondWeight']
+                    ?? $variant['diamondWeight']
+                    ?? 0
+                );
+                $diamondCount = (float) (
+                    $variant['variantDiamondCount']
+                    ?? $variant['diamondCount']
+                    ?? 0
+                );
+                $diamondPrice = $diamondCount * $diamondWeight * self::DIAMOND_PRICE_PER_CARAT;
+                $makingCharge = $goldPrice + $diamondPrice + self::CARROT_LUXE_FLAT_CHARGE;
+            } else {
+                $makingCharge = $goldPrice * (1 + $makingPercent / 100);
+            }
+
             $newPrice = number_format($makingCharge * self::CHARGE_GST, 2, '.', '');
             $currentPrice = number_format((float) $variant['current_price'], 2, '.', '');
 
@@ -320,9 +370,14 @@ class ShopifySingleProductPriceUpdateService {
                     'product_id' => $variant['product_gid'] ?? '',
                     'product_title' => $variant['product_title'] ?? '',
                     'variant_title' => $variant['variant_title'] ?? '',
-                    'weight_in_grams' => round($weightInGrams, 4),
-                    'making_percent' => $makingPercent,
                     'gold_rate_9kt' => round($goldRate, 4),
+                    '9kGoldWeight' => round($weightInGrams, 4),
+                    'makingPercent' => $makingPercent,
+                    'isCarrotLuxe' => $isCarrotLuxe,
+                    'diamondWeight' => $diamondWeight ?? 'NA',
+                    'diamondCount' => $diamondCount ?? 'NA',
+                    'diamondPrice' => $diamondPrice ?? 'NA',
+                    'makingCharge' => $makingCharge,
                     'final_price' => $newPrice,
                 ]
             );

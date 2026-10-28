@@ -68,6 +68,10 @@ class CarrotJewelleryProductSnapshotService
 
     public function upsertProductSnapshot(array $productSnapshot): CarrotJewelleryProduct
     {
+        // Diamond fields are only written when the snapshot carries them, so flows
+        // that don't fetch diamond metafields keep the values already stored.
+        $stored = CarrotJewelleryProduct::where('shopify_product_id', $productSnapshot['product_gid'])->first();
+
         return CarrotJewelleryProduct::updateOrCreate(
             [
                 'shopify_product_id' => $productSnapshot['product_gid'],
@@ -78,7 +82,14 @@ class CarrotJewelleryProductSnapshotService
                 'gold_weight' => $this->normalizeValue($productSnapshot['goldWeight'] ?? null),
                 '9k_gold_weight' => $this->normalizeValue($productSnapshot['9kGoldWeight'] ?? null),
                 'making_charge' => $this->normalizeValue($productSnapshot['makingCharge'] ?? null),
-                'variants' => $this->normalizeVariants($productSnapshot['variants'] ?? []),
+                'diamond_weight' => $this->normalizeValue(
+                    array_key_exists('diamond_weight', $productSnapshot) ? $productSnapshot['diamond_weight'] : $stored?->diamond_weight
+                ),
+                'diamond_count' => $this->normalizeValue(
+                    array_key_exists('diamond_count', $productSnapshot) ? $productSnapshot['diamond_count'] : $stored?->diamond_count
+                ),
+                'tags' => array_key_exists('tags', $productSnapshot) ? $productSnapshot['tags'] : $stored?->tags,
+                'variants' => $this->normalizeVariants($productSnapshot['variants'] ?? [], $stored?->variants ?? []),
                 'metafield_hash' => $this->hashSnapshot($productSnapshot),
             ]
         );
@@ -221,10 +232,16 @@ class CarrotJewelleryProductSnapshotService
 
     private function trackedSnapshot(array $productSnapshot): array
     {
+        $tags = $productSnapshot['tags'] ?? [];
+        sort($tags);
+
         return [
             'goldWeight' => $this->normalizeValue($productSnapshot['goldWeight'] ?? null),
             '9kGoldWeight' => $this->normalizeValue($productSnapshot['9kGoldWeight'] ?? null),
             'makingCharge' => $this->normalizeValue($productSnapshot['makingCharge'] ?? null),
+            'diamond_weight' => $this->normalizeValue($productSnapshot['diamond_weight'] ?? null),
+            'diamond_count' => $this->normalizeValue($productSnapshot['diamond_count'] ?? null),
+            'tags' => $tags,
             'variants' => $this->normalizeTrackedVariants($productSnapshot['variants'] ?? []),
         ];
     }
@@ -281,14 +298,17 @@ class CarrotJewelleryProductSnapshotService
                 'goldWeight' => $variant['goldWeight'] ?? null,
                 '9kGoldWeight' => $variant['9kGoldWeight'] ?? null,
                 'makingCharge' => $variant['makingCharge'] ?? null,
+                'diamond_weight' => $variant['diamond_weight'] ?? null,
+                'diamond_count' => $variant['diamond_count'] ?? null,
             ],
             $this->normalizeVariants($variants)
         );
     }
 
-    private function normalizeVariants(array $variants): array
+    private function normalizeVariants(array $variants, array $storedVariants = []): array
     {
         $normalized = [];
+        $storedByGid = collect($storedVariants)->keyBy('gid');
 
         foreach ($variants as $variant) {
             $gid = $variant['gid'] ?? null;
@@ -296,12 +316,16 @@ class CarrotJewelleryProductSnapshotService
                 continue;
             }
 
+            $stored = $storedByGid->get($gid, []);
+
             $normalized[] = [
                 'gid' => $gid,
                 'title' => $variant['title'] ?? $variant['variant_title'] ?? '',
                 'goldWeight' => $this->normalizeValue($this->variantMetafieldValue($variant, 'variantGoldWeight', 'goldWeight')),
                 'makingCharge' => $this->normalizeValue($this->variantMetafieldValue($variant, 'variantMakingCharge', 'makingCharge')),
                 '9kGoldWeight' => $this->normalizeValue($this->variantMetafieldValue($variant, 'variant9KGoldWeight', '9kGoldWeight')),
+                'diamond_weight' => $this->normalizeValue($this->variantMetafieldValue($variant, 'variantDiamondWeight', 'diamond_weight', $stored['diamond_weight'] ?? null)),
+                'diamond_count' => $this->normalizeValue($this->variantMetafieldValue($variant, 'variantDiamondCount', 'diamond_count', $stored['diamond_count'] ?? null)),
             ];
         }
 
@@ -310,13 +334,13 @@ class CarrotJewelleryProductSnapshotService
         return $normalized;
     }
 
-    private function variantMetafieldValue(array $variant, string $variantKey, string $legacyKey)
+    private function variantMetafieldValue(array $variant, string $variantKey, string $legacyKey, $fallback = null)
     {
         if (array_key_exists($variantKey, $variant)) {
             return $variant[$variantKey];
         }
 
-        return $variant[$legacyKey] ?? null;
+        return $variant[$legacyKey] ?? $fallback;
     }
 
     private function normalizeValue($value): ?string
@@ -436,6 +460,8 @@ class CarrotJewelleryProductSnapshotService
                 'goldWeight' => $existing['goldWeight'] ?? null,
                 'makingCharge' => $existing['makingCharge'] ?? null,
                 '9kGoldWeight' => $storeVariantWeights ? $variant['9kGoldWeight'] : null,
+                'diamond_weight' => $existing['diamond_weight'] ?? null,
+                'diamond_count' => $existing['diamond_count'] ?? null,
             ];
         }
 

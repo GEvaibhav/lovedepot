@@ -111,6 +111,12 @@ class ProductCreateService
                 makingCharge: metafield(namespace: "custom", key: "making") {
                     value
                 }
+                diamondWeight: metafield(namespace: "custom", key: "diamond_weight") {
+                    value
+                }
+                diamondCount: metafield(namespace: "custom", key: "diamond_count") {
+                    value
+                }
                 variants(first: 250) {
                     edges {
                         node {
@@ -124,6 +130,12 @@ class ProductCreateService
                                 value
                             }
                             variantMakingCharge: metafield(namespace: "custom", key: "making") {
+                                value
+                            }
+                            variantDiamondWeight: metafield(namespace: "custom", key: "diamond_weight") {
+                                value
+                            }
+                            variantDiamondCount: metafield(namespace: "custom", key: "diamond_count") {
                                 value
                             }
                         }
@@ -185,9 +197,13 @@ class ProductCreateService
                 'variantGoldWeight' => data_get($node, 'variantGoldWeight.value'),
                 'variant9KGoldWeight' => data_get($node, 'variant9KGoldWeight.value'),
                 'variantMakingCharge' => data_get($node, 'variantMakingCharge.value'),
+                'variantDiamondWeight' => data_get($node, 'variantDiamondWeight.value'),
+                'variantDiamondCount' => data_get($node, 'variantDiamondCount.value'),
                 'goldWeight' => data_get($product, 'goldWeight.value'),
                 '9kGoldWeight' => data_get($product, 'nineKGoldWeight.value'),
                 'makingCharge' => data_get($product, 'makingCharge.value'),
+                'diamond_weight' => data_get($product, 'diamondWeight.value'),
+                'diamond_count' => data_get($product, 'diamondCount.value'),
             ];
         }
 
@@ -197,7 +213,9 @@ class ProductCreateService
             'goldWeight' => data_get($product, 'goldWeight.value'),
             '9kGoldWeight' => data_get($product, 'nineKGoldWeight.value'),
             'makingCharge' => data_get($product, 'makingCharge.value'),
-            'variants' => array_values(array_filter($variants, fn($variant) => !empty($variant['gid']))),
+            'diamond_weight' => data_get($product, 'diamondWeight.value'),
+            'diamond_count' => data_get($product, 'diamondCount.value'),
+            'variants' =>array_values(array_filter($variants, fn($variant) => !empty($variant['gid']))),
         ];
     }
 
