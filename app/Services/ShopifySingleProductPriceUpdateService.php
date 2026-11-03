@@ -351,7 +351,7 @@ class ShopifySingleProductPriceUpdateService {
                     ?? $variant['diamondCount']
                     ?? 0
                 );
-                $diamondPrice = $diamondCount * $diamondWeight * self::DIAMOND_PRICE_PER_CARAT;
+                $diamondPrice = $diamondWeight * self::DIAMOND_PRICE_PER_CARAT;
                 $makingCharge = $goldPrice + $diamondPrice + self::CARROT_LUXE_FLAT_CHARGE;
             } else {
                 $makingCharge = $goldPrice * (1 + $makingPercent / 100);

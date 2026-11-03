@@ -710,7 +710,7 @@ class ShopifyBulkUpdaterService {
                     if ($isCarrotLuxe) {
                         $diamondWeight = (float) ($variant['diamond_weight'] ?? $product->diamond_weight ?? 0);
                         $diamondCount = (float) ($variant['diamond_count'] ?? $product->diamond_count ?? 0);
-                        $diamondPrice = $diamondCount * $diamondWeight * self::DIAMOND_PRICE_PER_CARAT;
+                        $diamondPrice = $diamondWeight * self::DIAMOND_PRICE_PER_CARAT;
                         $makingCharge = $goldPrice + $diamondPrice + self::CARROT_LUXE_FLAT_CHARGE;
                     } else {
                         $makingCharge = $goldPrice * (1 + $makingPercent / 100);
