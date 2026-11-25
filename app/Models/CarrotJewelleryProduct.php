@@ -15,6 +15,7 @@ class CarrotJewelleryProduct extends Model
         'making_charge',
         'diamond_weight',
         'diamond_count',
+        'diamond_rate',
         'tags',
         'variants',
         'metafield_hash',

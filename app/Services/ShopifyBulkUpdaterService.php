@@ -210,6 +210,9 @@ class ShopifyBulkUpdaterService {
                             diamondCount: metafield(namespace: "custom", key: "diamond_count") {
                                 value
                             }
+                            diamondRate: metafield(namespace: "custom", key: "diamond_rate") {
+                                value
+                            }
                             tags
                             variants(first: 250) {
                                 edges {
@@ -229,6 +232,9 @@ class ShopifyBulkUpdaterService {
                                             value
                                         }
                                         variantDiamondCount: metafield(namespace: "custom", key: "diamond_count") {
+                                            value
+                                        }
+                                        variantDiamondRate: metafield(namespace: "custom", key: "diamond_rate") {
                                             value
                                         }
                                     }
@@ -305,6 +311,7 @@ class ShopifyBulkUpdaterService {
                         'makingCharge' => data_get($variant, 'variantMakingCharge.value'),
                         'variantDiamondWeight' => data_get($variant, 'variantDiamondWeight.value'),
                         'variantDiamondCount' => data_get($variant, 'variantDiamondCount.value'),
+                        'variantDiamondRate' => data_get($variant, 'variantDiamondRate.value'),
                     ];
                 }
 
@@ -316,6 +323,7 @@ class ShopifyBulkUpdaterService {
                     'makingCharge' => data_get($node, 'makingCharge.value'),
                     'diamond_weight' => data_get($node, 'diamondWeight.value'),
                     'diamond_count' => data_get($node, 'diamondCount.value'),
+                    'diamond_rate' => data_get($node, 'diamondRate.value'),
                     'tags' => $node['tags'] ?? [],
                     'variants' => $variants,
                 ];
@@ -710,7 +718,8 @@ class ShopifyBulkUpdaterService {
                     if ($isCarrotLuxe) {
                         $diamondWeight = (float) ($variant['diamond_weight'] ?? $product->diamond_weight ?? 0);
                         $diamondCount = (float) ($variant['diamond_count'] ?? $product->diamond_count ?? 0);
-                        $diamondPrice = $diamondWeight * self::DIAMOND_PRICE_PER_CARAT;
+                        $diamondRate = (float) ($variant['diamond_rate'] ?? $product->diamond_rate ?? self::DIAMOND_PRICE_PER_CARAT);
+                        $diamondPrice = $diamondWeight * $diamondRate;
                         $makingCharge = $goldPrice + $diamondPrice + self::CARROT_LUXE_FLAT_CHARGE;
                     } else {
                         $makingCharge = $goldPrice * (1 + $makingPercent / 100);
@@ -747,6 +756,7 @@ class ShopifyBulkUpdaterService {
                             'isCarrotLuxe' => $isCarrotLuxe,
                             'diamondWeight' => $diamondWeight ?? 'NA',
                             'diamondCount' => $diamondCount ?? 'NA',
+                            'diamondRate' => $diamondRate ?? 'NA',
                             'diamondPrice' => $diamondPrice ?? 'NA',
                             'makingCharge' => $makingCharge,
                             'final_price' => $newPrice,
