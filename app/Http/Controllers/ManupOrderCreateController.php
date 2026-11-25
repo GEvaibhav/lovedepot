@@ -23,8 +23,11 @@ class ManupOrderCreateController extends Controller {
                     ($order['customer']['first_name'] ?? '') . ' ' .
                         ($order['customer']['last_name'] ?? '')
                 ),
-                'patientMobile' =>
-                $order['shipping_address']['phone'] ?? '',
+                'patientMobile' => preg_replace(
+                    '/\s+/',
+                    '',
+                    $order['shipping_address']['phone'] ?? ''
+                ),
                 'patientMobileSecondary' => null,
                 'orderReValidationReason' => [],
                 'alternateLanguagePreference' => null,
